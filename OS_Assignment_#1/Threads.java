@@ -1,75 +1,110 @@
 import java.io.*;
 import java.util.*;
-import java.lang.*;
 
-public class ConsumerProducer{
+public class Main{
         public static void main(String args[]){
-                // create a new producer object
-                Producer producer = new Producer();
+
+              // create a new buffer to share with producer & consumer
+              ArrayList<Integer> sharedBuffer = new ArrayList<Integer>();
+              int maxSize = 5; // select max size of buffer
+
+              // create producer/consumer object
+              Producer producer = new Producer(sharedBuffer,maxSize);
+              Consumer consumer = new Consumer(sharedBuffer,maxSize);
+                
+              // create threads
+              Thread t1 = new Thread(producer);
+              Thread t2 = new Thread(consumer);
+                
+              // start threads
+              t1.start();
+              t2.start();      
         }
 }
 
-class Producer extends Thread {
+class Producer implements Runnable  {
 
-        // create message queue (buffer)
-        int sizeOfBuffer = 5;
-        ArrayList<Integer> sharedBuffer;
-        // initialize Thread
-        Thread producerThread;
+
+        int maxSizeOfBuffer = 0;
+        ArrayList<Integer> pbuffer;
 
         // create producer object
-        Producer(){
-                sharedBuffer = new ArrayList<Integer>(sizeOfBuffer);
-                producerThread = new Thread(this); // create thread with current object
-                producerThread.start(); // start thread
-        }
+        public Producer(ArrayList<Integer> buffer, int max){
+                pbuffer = buffer;
+                maxSizeOfBuffer = max;
+                }
 
         public void run(){ // produce data and add it to buffer that we initizlized above
                 int i = 0;
                 while(true)
                 {
-                        synchronized (sharedBuffer) {
-                                while(sharedBuffer.size() == sizeOfBuffer)
+                        synchronized (pbuffer) {
+                                while(pbuffer.size() == maxSizeOfBuffer)
                                 {
                                         try
                                         {
-                                                System.out.println("Queue is Full...");
-                                                sharedBuffer.wait();
+                                                System.out.println("Buffer is Full... Producer is Waiting...");
+                                                pbuffer.wait();
+                                                i = 0;
                                         }
                                         catch(InterruptedException e)
                                         {
                                                 e.printStackTrace();
                                         }
                                 }
-                                System.out.println("Producing Value: " + i);
-                                sharedBuffer.add(i++);
-                                sharedBuffer.notify();
+
+                                  if(pbuffer.size() > maxSizeOfBuffer){
+                                    System.out.println("Error... Producing Past Max Size of Buffer");
+                                  }
+                                
+                                ++i;
+                                System.out.println("Producing Value: " + i + " of " + maxSizeOfBuffer);
+                                pbuffer.add(i);
+                                pbuffer.notify();
+
+                                if(pbuffer.size() == maxSizeOfBuffer){
+                                  System.out.println("Buffer is now Full...");
+                                }
                         }
                 }
 
-                Consumer consumer = new Consumer(this);
-                producerThread = new Thread(consumer);
-                consumer.start();
+              
         }
 }
 
-class Consumer extends Thread {
-        Producer producer;
+class Consumer implements Runnable {
+    
+      int maxSizeOfBuffer = 0;
+      ArrayList<Integer> cbuffer;
+      // create consumer constructor
+      public Consumer(ArrayList<Integer> buffer, int max) {
+        cbuffer = buffer;
+        maxSizeOfBuffer = max;
+      }
 
-        // create consumer constructor
-        Consumer(Producer temp) {
-                producer = temp;
-        }
+      public void run() {
 
-        public void run() {
-
+        while(true) {
+            synchronized (cbuffer) {
+               while(cbuffer.isEmpty()) {
+                 
                 try {
-                        for (int i = 0; i < producer.sizeOfBuffer; i++) {
-                                System.out.println(producer.sharedBuffer.charAt(i) + "")
-                        }
+                    System.out.println("Buffer is Empty... Consumer is Waiting...");
+                    cbuffer.wait();
                 } catch (InterruptedException e) {
-                        e.printStackTrace();
+                    	e.printStackTrace();
+                      }
+                }  
+
+                  if(cbuffer.isEmpty()){
+                   System.out.println("Error... Consuming Past Beggining of Buffer");
+                  }
+
+                if(!(cbuffer.isEmpty())) {
+                System.out.println("Consuming Value: " + cbuffer.remove(0) + " of " + maxSizeOfBuffer);
+                cbuffer.notify();
                 }
-                System.out.println("Buffer is Empty...");
+            }
         }
+      }
 }
